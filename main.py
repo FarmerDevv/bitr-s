@@ -13,11 +13,10 @@ from minigames.bitatc import start_bitrus_attack
 from minigames.jump import start_bitrus_jumpscare
 from minigames.lab_game import start_lab_game
 from minigames.chap_1 import start_chap_1
-from minigames.nuke import start_end_sezon1 
+from minigames.nuke import start_end_sezon1
+from minigames.notdie import start_notdie
 import random
-
 pygame.init()
-
 class ModManager:
     def __init__(self):
         self.mods_dir = "mods"
@@ -33,6 +32,11 @@ class ModManager:
             'on_minigame_start': [],
             'on_minigame_end': []
         }
+        # Yeni özellikler
+        self.mod_imports = {}  # Mod'ların import ettiği minigame'ler
+        self.mod_key_bindings = {}  # Mod'ların key binding'leri
+        self.mod_functions = {}  # Mod'ların çağırılabilir fonksiyonları
+        
         self.create_mods_directory()
         self.load_all_mods()
     
@@ -111,7 +115,144 @@ mod_instance = ExampleMod()
             
             with open(os.path.join(example_mod_dir, "manifest.json"), "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=4, ensure_ascii=False)
+    def load_mod(self, mod_folder: str, manifest: dict):
+        """Belirli bir modu yükler"""
+        mod_path = os.path.join(self.mods_dir, mod_folder)
+        main_file = manifest.get("main_file", f"{mod_folder}.py")
+        mod_file_path = os.path.join(mod_path, main_file)
+        
+        if not os.path.exists(mod_file_path):
+            print(f"Mod dosyası bulunamadı: {mod_file_path}")
+            return False
+            
+        try:
+            spec = importlib.util.spec_from_file_location(mod_folder, mod_file_path)
+            module = importlib.util.module_from_spec(spec)
+            
+            original_path = sys.path.copy()
+            sys.path.insert(0, mod_path)
+            
+            spec.loader.exec_module(module)
+            sys.path = original_path
+            
+            if hasattr(module, 'mod_instance'):
+                mod_instance = module.mod_instance
+                
+                if hasattr(mod_instance, '__dict__'):
+                    mod_instance.manifest = manifest
+                    mod_instance.mod_folder = mod_folder
+                    mod_instance.mod_path = mod_path
+                
+                self.loaded_mods[mod_folder] = mod_instance
+                self.active_mods.append(mod_folder)
+                
+                # Hook'ları kaydet - TÜM HOOK'LAR
+                for hook_name in self.mod_hooks.keys():
+                    if hasattr(mod_instance, hook_name):
+                        self.mod_hooks[hook_name].append(getattr(mod_instance, hook_name))
+                
+                # Import'ları tara
+                self.scan_mod_imports(mod_instance, mod_folder, module)
+                self.scan_mod_key_bindings(mod_instance, mod_folder)
+                self.scan_mod_functions(mod_instance, mod_folder)
+                
+                print(f"Mod yüklendi: {manifest.get('name', mod_folder)} v{manifest.get('version', '1.0')}")
+                return True
+            else:
+                print(f"Mod'da mod_instance bulunamadı: {mod_folder}")
+                return False
+                
+        except Exception as e:
+            print(f"Mod yüklenemedi {mod_folder}: {e}")
+            return False
     
+    def scan_mod_imports(self, mod_instance, mod_folder, module):
+        """Mod'un import ettiği minigame'leri tarar"""
+        if hasattr(mod_instance, 'minigame_imports'):
+            imports = mod_instance.minigame_imports
+            if isinstance(imports, dict):
+                self.mod_imports[mod_folder] = imports
+                print(f"Mod {mod_folder} minigame import'ları yüklendi: {list(imports.keys())}")
+        
+        for attr_name in dir(module):
+            if attr_name.startswith('start_') and callable(getattr(module, attr_name)):
+                if mod_folder not in self.mod_imports:
+                    self.mod_imports[mod_folder] = {}
+                self.mod_imports[mod_folder][attr_name] = getattr(module, attr_name)
+    
+    def scan_mod_key_bindings(self, mod_instance, mod_folder):
+        """Mod'un key binding'lerini tarar"""
+        if hasattr(mod_instance, 'key_bindings'):
+            bindings = mod_instance.key_bindings
+            if isinstance(bindings, dict):
+                self.mod_key_bindings[mod_folder] = bindings
+                print(f"Mod {mod_folder} key binding'leri yüklendi: {list(bindings.keys())}")
+    
+    def scan_mod_functions(self, mod_instance, mod_folder):
+        """Mod'un özel fonksiyonlarını tarar"""
+        if hasattr(mod_instance, 'custom_functions'):
+            functions = mod_instance.custom_functions
+            if isinstance(functions, dict):
+                self.mod_functions[mod_folder] = functions
+                print(f"Mod {mod_folder} özel fonksiyonları yüklendi: {list(functions.keys())}")
+    
+    def handle_key_press(self, key, game_data):
+        """Mod'ların key press event'larını işler - DÜZELTILMIŞ"""
+        # Standart hook'ları çağır - DOĞRU PARAMETRELER
+        self.call_hook('on_key_press', key, game_data)
+        
+        # Mod key binding'lerini kontrol et
+        for mod_folder, bindings in self.mod_key_bindings.items():
+            if mod_folder in self.active_mods:
+                for key_code, action in bindings.items():
+                    if key == key_code:
+                        try:
+                            if callable(action):
+                                action(game_data)
+                            elif isinstance(action, str) and mod_folder in self.mod_functions:
+                                if action in self.mod_functions[mod_folder]:
+                                    self.mod_functions[mod_folder][action](game_data)
+                        except Exception as e:
+                            print(f"Mod key binding hatası {mod_folder}: {e}")
+    
+    def handle_mouse_click(self, pos, button, game_data):
+        """Mouse click'leri işler"""
+        self.call_hook('on_mouse_click', pos, button, game_data)
+    
+    def update_mods(self, game_data):
+        """Her frame modları günceller"""
+        self.call_hook('on_update', game_data)
+    
+    def call_hook(self, hook_name: str, *args, **kwargs):
+        """Mod hook'larını çağırır - DÜZELTILMIŞ"""
+        results = []
+        for hook_func in self.mod_hooks.get(hook_name, []):
+            try:
+                result = hook_func(*args, **kwargs)
+                results.append(result)
+            except Exception as e:
+                print(f"Mod hook hatası {hook_name}: {e}")
+        return results
+    
+    def get_mod_minigames(self):
+        """Aktif modların minigame'lerini döndürür"""
+        minigames = {}
+        for mod_folder, imports in self.mod_imports.items():
+            if mod_folder in self.active_mods:
+                minigames.update(imports)
+        return minigames
+    
+    def call_mod_minigame(self, minigame_name, *args, **kwargs):
+        """Mod minigame'ini çağırır"""
+        for mod_folder, imports in self.mod_imports.items():
+            if mod_folder in self.active_mods and minigame_name in imports:
+                try:
+                    return imports[minigame_name](*args, **kwargs)
+                except Exception as e:
+                    print(f"Mod minigame hatası {minigame_name}: {e}")
+                    return None
+        print(f"Mod minigame bulunamadı: {minigame_name}")
+        return None
     def load_all_mods(self):
         """Tüm modları yükler"""
         if not os.path.exists(self.mods_dir):
@@ -274,8 +415,11 @@ pc_img = pygame.image.load(os.path.join(ASSETS_DIR, "pc.png"))
 bitrus_img = pygame.image.load(os.path.join(ASSETS_DIR, "bitrüs.png"))
 kir_img = pygame.image.load(os.path.join(ASSETS_DIR, "kir.png"))
 human_img = pygame.image.load(os.path.join(ASSETS_DIR, "human.jpg"))
+rocket_img = pygame.image.load(os.path.join(ASSETS_DIR, "rocket.png"))
+nuke_img = pygame.image.load(os.path.join(ASSETS_DIR, "nuke.png"))
+wantvirus_img = pygame.image.load("assets\pixel_art\wantvirus.png")
 human_sound = pygame.mixer.Sound("assets/music/human.mp3")
-
+explosion_sound = pygame.mixer.Sound("assets/music/nuke.mp3")
 def reload_mods():
     """Modları yeniden yükler"""
     global mod_manager
@@ -512,16 +656,7 @@ def start_about_app(screen):
     pygame.time.wait(5000)
 
 def main():
-    game_data = {
-        'screen': screen,
-        'WIDTH': WIDTH,
-        'HEIGHT': HEIGHT,
-        'current_state': 'menu'
-    }
-    
-    # Oyun başlangıcı hook'u çağır
-    mod_manager.call_hook('on_game_start', game_data)
-    
+    # Önce tüm asset'leri yükle
     dialogs = [
         "Haha keriz, gerçekten bunu gerçek bitcoin sandın mı?",
         "Ben kim miyim Bitrüs'üm yakında çok daha iyi tanıyacaksın...",
@@ -559,6 +694,15 @@ def main():
     dialog_start_time = 0
     dialog_delay = 5000
 
+    game_data = {
+        'screen': screen,
+        'WIDTH': WIDTH,
+        'HEIGHT': HEIGHT,
+        'current_state': 'menu'
+    }
+    
+    mod_manager.call_hook('on_game_start', game_data)
+    
     clock = pygame.time.Clock()
     running = True
     
@@ -597,7 +741,10 @@ def main():
         
         # Screen update hook'u çağır
         mod_manager.call_hook('on_screen_update', screen, game_data)
-            
+        
+        # Her frame mod'ları güncelle
+        mod_manager.update_mods(game_data)
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -607,11 +754,14 @@ def main():
                     if not show_mod_menu(screen):
                         running = False
                 
-                # Key press hook'u çağır
-                mod_manager.call_hook('on_key_press', event.key, game_data)
+                # Mod key handler'ını çağır
+                mod_manager.handle_key_press(event.key, game_data)
                 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 pos = event.pos
+                # Mouse click hook'u çağır
+                mod_manager.handle_mouse_click(pos, event.button, game_data)
+                
                 if not dialog_mode:
                     clicked_icon = None
                     if bitcoin_rect.collidepoint(pos):
@@ -626,53 +776,21 @@ def main():
                         clicked_icon = "about"
                         start_about_app(screen)
                     
-                    # Icon click hook'u çağır
                     if clicked_icon:
                         mod_manager.call_hook('on_icon_click', clicked_icon, game_data)
 
         pygame.display.flip()
         clock.tick(60)
 
-    # Minigame başlangıcı hook'u çağır
-    mod_manager.call_hook('on_minigame_start', 'labyrinth', game_data)
-    start_labyrinth_game(screen)
-    mod_manager.call_hook('on_minigame_end', 'labyrinth', game_data)
+
+  
+
     
-    mod_manager.call_hook('on_minigame_start', 'virus_defense', game_data)
-    start_virus_defense(screen, virus_image, wantvirus_image)
-    mod_manager.call_hook('on_minigame_end', 'virus_defense', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'new_game', game_data)
-    start_new_game(screen, virus_image)
-    mod_manager.call_hook('on_minigame_end', 'new_game', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'code_race', game_data)
-    start_code_race(screen, bitrus_img)
-    mod_manager.call_hook('on_minigame_end', 'code_race', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'system_check', game_data)
-    start_bitrus_cutscene(screen, bitrus_img, kir_img)
-    mod_manager.call_hook('on_minigame_end', 'system_check', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'bitrus_attack', game_data)
-    start_bitrus_attack(screen, bitrus_img, pc_img)
-    mod_manager.call_hook('on_minigame_end', 'bitrus_attack', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'jumpscare', game_data)
-    start_bitrus_jumpscare(screen, bitrus_img, human_img, human_sound)
-    mod_manager.call_hook('on_minigame_end', 'jumpscare', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'lab_game', game_data)
-    start_lab_game(screen, bitrus_img, pc_img)
-    mod_manager.call_hook('on_minigame_end', 'lab_game', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'chapter_1', game_data)
-    start_chap_1(screen, bitrus_img, pc_img)
-    mod_manager.call_hook('on_minigame_end', 'chapter_1', game_data)
-    
-    mod_manager.call_hook('on_minigame_start', 'season_end', game_data)
-    start_end_sezon1(screen, bitrus_img, pc_img)
-    mod_manager.call_hook('on_minigame_end', 'season_end', game_data)
+
+    mod_manager.call_hook('on_minigame_start', 'notdie', game_data)
+    start_notdie(screen, bitrus_img, pc_img, wantvirus_img, rocket_img, nuke_img , explosion_sound)
+    mod_manager.call_hook('on_minigame_end', 'notdie', game_data)
+
     
     # Oyun bitişi hook'u çağır
     mod_manager.call_hook('on_game_end', game_data)
