@@ -25,22 +25,7 @@ pygame.display.set_icon(icon)
 ACCENT_COLOR = (100, 200, 255)
 GITHUB_URL = "https://github.com/FarmerDevv"
 pygame.init()
-BG_COLOR = (54, 54, 54)
-SAVE_FILE = "save.json"
-# Minigame sıralaması (kullanabilirsiniz)
-MINIGAMES = [
-    "labyrinth_game",
-    "virus_defense",
-    "new_game",
-    "code_race",
-    "bitrus_cutscene",
-    "bitrus_attack",
-    "bitrus_jumpscare",
-    "lab_game",
-    "chap_1",
-    "end_sezon1",
-    "notdie"
-]
+
 
 def splash_screen(screen):
     pygame.init()
@@ -51,7 +36,18 @@ def splash_screen(screen):
     font = pygame.font.SysFont("Arial", 32, bold=True)
     text = "Farmer Dev tarafından Python teknolojileriyle yapıldı"
     text_surface = font.render(text, True, (200, 200, 200))
-    text_rect = text_surface.get_rect(center=(WIDTH//2, HEIGHT//2 + 100))
+    text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 120))
+
+    # Başlık fontu ve ayarları
+    title_font = pygame.font.SysFont("Arial", 48, bold=True)
+    title_text = "free bitcoin bitrüs"
+    title_color = (10, 10, 10)  # siyah renk
+    title_surface = title_font.render(title_text, True, title_color)
+
+    # Başlık biraz aşağıda (örneğin y=100)
+    title_y = 100
+    title_x = WIDTH
+    target_title_x = WIDTH // 2 - title_surface.get_width() // 2
 
     logo_path = os.path.join("assets", "pixel_art", "bitcoin_icon.png")
     logo_img = pygame.image.load(logo_path).convert_alpha()
@@ -60,13 +56,13 @@ def splash_screen(screen):
     duration = 15_000
     start_time = pygame.time.get_ticks()
 
-    # Logo pozisyonu animasyonu
     logo_x = -150
     logo_y = HEIGHT // 2 - 50
-    target_x = WIDTH // 2 - 75  # logo genişliği/2 kadar sola
+    target_logo_x = WIDTH // 2 - 75
 
     particles = []
-    particle_triggered = False
+    particle_triggered_title = False
+    particle_triggered_text = False
 
     running = True
     while running:
@@ -81,34 +77,54 @@ def splash_screen(screen):
 
         screen.fill(BG_COLOR)
 
+        # Başlık sağdan sola hareket
+        if title_x > target_title_x:
+            title_x -= 8
+        else:
+            title_x = target_title_x
+            # Başlık için particle çıkar (300 tane)
+            if not particle_triggered_title:
+                for _ in range(300):
+                    particles.append({
+                        "pos": [title_x + title_surface.get_width() // 2, title_y + 20],
+                        "vel": [random.uniform(-8, 8), random.uniform(-8, 8)],
+                        "radius": random.randint(2, 5),
+                        "color": (30 + random.randint(0, 40), 20 + random.randint(0, 40), 10),
+                        "lifetime": random.randint(50, 150)
+                    })
+                particle_triggered_title = True
+
+        # Başlık çizimi
+        screen.blit(title_surface, (title_x, title_y))
+
         # Logo soldan sağa hareket
-        if logo_x < target_x:
+        if logo_x < target_logo_x:
             logo_x += 8
         else:
-            logo_x = target_x
-            # Particle tetiklenmesi bir kereye mahsus
-            if not particle_triggered:
-                for _ in range(120):  # taş rengi parçacıklar
+            logo_x = target_logo_x
+            # Alt yazı için particle çıkar (200 tane)
+            if not particle_triggered_text:
+                for _ in range(200):
                     particles.append({
-                        "pos": [WIDTH//2, logo_y + 75],
-                        "vel": [random.uniform(-5, 5), random.uniform(-5, 5)],
+                        "pos": [text_rect.centerx, text_rect.centery],
+                        "vel": [random.uniform(-6, 6), random.uniform(-6, 6)],
                         "radius": random.randint(2, 4),
                         "color": (110 + random.randint(0, 30), 100 + random.randint(0, 30), 90),
                         "lifetime": random.randint(40, 100)
                     })
-                particle_triggered = True
+                particle_triggered_text = True
 
-        # Logo çizimi
         logo_rect = logo_img.get_rect(topleft=(logo_x, logo_y))
         screen.blit(logo_img, logo_rect)
 
-        # Yazı titreme/parlama efekti
+        # Alt metin titreme/parlama efekti
         brightness = 150 + 105 * math.sin(t * math.pi * 4)
         text_color = (brightness, brightness, brightness)
         text_surface = font.render(text, True, text_color)
         screen.blit(text_surface, text_rect)
 
         # Particle güncelleme ve çizim
+        new_particles = []
         for p in particles:
             p["pos"][0] += p["vel"][0]
             p["pos"][1] += p["vel"][1]
@@ -116,14 +132,16 @@ def splash_screen(screen):
             p["lifetime"] -= 1
             if p["lifetime"] > 0:
                 pygame.draw.circle(screen, p["color"], (int(p["pos"][0]), int(p["pos"][1])), p["radius"])
-        # Ölen partikülleri temizle
-        particles = [p for p in particles if p["lifetime"] > 0]
+                new_particles.append(p)
+        particles = new_particles
 
         pygame.display.flip()
         clock.tick(60)
 
         if elapsed >= duration:
             running = False
+
+
 
 class ModManager:
     def __init__(self):
@@ -511,78 +529,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 FONT = pygame.font.SysFont("Arial", 28)
-font_title = pygame.font.SysFont("Arial", 64, bold=True)
-font_button = pygame.font.SysFont("Arial", 40)
 
-clock = pygame.time.Clock()
-
-class Button:
-    def __init__(self, text, x, y, callback):
-        self.text = text
-        self.rect = pygame.Rect(x, y, 300, 70)
-        self.callback = callback
-
-    def draw(self, surface, mouse_pos):
-        color = (70, 70, 70) if self.rect.collidepoint(mouse_pos) else (40, 40, 40)
-        pygame.draw.rect(surface, color, self.rect, border_radius=15)
-        txt = font_button.render(self.text, True, (255, 255, 255))
-        surface.blit(txt, (self.rect.x + 30, self.rect.y + 15))
-
-    def click(self, mouse_pos):
-        if self.rect.collidepoint(mouse_pos):
-            self.callback()
-
-def start_minigame(name):
-    print(f"Minigame '{name}' başlatıldı!")  # Buraya oyun başlatma fonksiyonunu ekle
-
-def yeni_oyun():
-    save = {"last_minigame": MINIGAMES[0]}
-    with open(SAVE_FILE, "w") as f:
-        json.dump(save, f)
-    start_minigame(MINIGAMES[0])
-
-def devam_et():
-    if os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, "r") as f:
-            save = json.load(f)
-            minigame = save.get("last_minigame", MINIGAMES[0])
-            start_minigame(minigame)
-    else:
-        yeni_oyun()
-
-def oyundan_cik():
-    pygame.quit()
-    sys.exit()
-
-buttons = [
-    Button("Yeni Oyun", WIDTH//2 - 150, 300, yeni_oyun),
-    Button("Devam Et", WIDTH//2 - 150, 400, devam_et),
-    Button("Oyundan Çık", WIDTH//2 - 150, 500, oyundan_cik)
-]
-
-def main_menu():
-    running = True
-    while running:
-        mouse_pos = pygame.mouse.get_pos()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                oyundan_cik()
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for btn in buttons:
-                    btn.click(mouse_pos)
-
-        screen.fill(BG_COLOR)
-
-        title_surf = font_title.render("Bitrüs", True, (0, 255, 180))
-        title_rect = title_surf.get_rect(center=(WIDTH//2, 150))
-        screen.blit(title_surf, title_rect)
-
-        for btn in buttons:
-            btn.draw(screen, mouse_pos)
-
-        pygame.display.flip()
-        clock.tick(60)
 ASSETS_DIR = "assets/pixel_art"
 BACKGROUND_PATH = os.path.join(ASSETS_DIR, "xp_background.jpg")
 BITCOIN_ICON_PATH = os.path.join(ASSETS_DIR, "bitcoin_icon.png")
