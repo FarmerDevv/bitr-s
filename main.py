@@ -19,6 +19,10 @@ from minigames.lab_game import start_lab_game
 from minigames.chap_1 import start_chap_1
 from minigames.nuke import start_end_sezon1
 from minigames.notdie import start_notdie
+from minigames.new_offer import start_new_offer
+from minigames.cable import start_cable_game
+from minigames.water_system import start_water_system
+from minigames.sun_panel import start_sun_panel
 pygame.init()
 icon = pygame.image.load("assets/pixel_art/bitcoin_icon.png")
 pygame.display.set_icon(icon)
@@ -546,6 +550,8 @@ nuke_img = pygame.image.load(os.path.join(ASSETS_DIR, "nuke.png"))
 wantvirus_img = pygame.image.load("assets/pixel_art/wantvirus.png")
 human_sound = pygame.mixer.Sound("assets/music/human.mp3")
 explosion_sound = pygame.mixer.Sound("assets/music/nuke.mp3")
+
+
 def reload_mods():
     """Modları yeniden yükler"""
     global mod_manager
@@ -966,6 +972,7 @@ def start_about_app(screen):
 
 def main():
     # Önce tüm asset'leri yükle
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
     dialogs = [
         "Haha keriz, gerçekten bunu gerçek bitcoin sandın mı?",
         "Ben kim miyim Bitrüs'üm yakında çok daha iyi tanıyacaksın...",
@@ -1090,9 +1097,70 @@ def main():
 
         pygame.display.flip()
         clock.tick(60)
-
-
-  
+    minigames = [
+        ('labyrinth', start_labyrinth_game, [screen]),
+        ('virus_defense', start_virus_defense, [screen, virus_image, wantvirus_image]),
+        ('new_game', start_new_game, [screen, virus_image]),
+        ('code_race', start_code_race, [screen, bitrus_img]),
+        ('system_check', start_bitrus_cutscene, [screen, bitrus_img, kir_img]),
+        ('bitrus_attack', start_bitrus_attack, [screen, bitrus_img, pc_img]),
+        ('jumpscare', start_bitrus_jumpscare, [screen, bitrus_img, human_img, human_sound]),
+        ('lab_game', start_lab_game, [screen, bitrus_img, pc_img]),
+        ('chapter_1', start_chap_1, [screen, bitrus_img]),
+        ('end_sezon1', start_end_sezon1, [screen, bitrus_img]),
+        ('notdie', start_notdie, [screen, bitrus_img, pc_img, wantvirus_img, rocket_img, nuke_img, explosion_sound]),
+        ('new_offer', start_new_offer, [screen, background, pitrus]),
+        ('cable_game', start_cable_game, [screen]),
+        ('water_system', start_water_system, [screen]),
+        ('sun_panel', start_sun_panel, [screen])
+    ]
+    
+    # Başlangıç minigame index'i
+    current_minigame_index = 0
+    
+    # Minigame döngüsü
+    while current_minigame_index < len(minigames):
+        # Mod'lardan minigame switch kontrolü - BURAYA KODLARINIZ GELİYOR
+        if 'switch_to_minigame' in game_data:
+            target_minigame = game_data['switch_to_minigame']
+            current_minigame_index = game_data.get('target_minigame_index', 0)
+            # Switch flag'ini temizle
+            del game_data['switch_to_minigame']
+            if 'target_minigame_index' in game_data:
+                del game_data['target_minigame_index']
+        
+        # Doğru minigame'i başlat
+        if 'force_minigame_index' in game_data:
+            current_minigame_index = game_data['force_minigame_index']
+            del game_data['force_minigame_index']  # Flag'i temizle
+        
+        # Index sınırlarını kontrol et
+        if current_minigame_index >= len(minigames):
+            break
+        
+        minigame_name, minigame_func, minigame_args = minigames[current_minigame_index]
+        
+        # Minigame başlangıç hook'u
+        mod_manager.call_hook('on_minigame_start', minigame_name, game_data)
+        
+        # Minigame'i çalıştır
+        try:
+            minigame_func(*minigame_args)
+        except Exception as e:
+            print(f"Minigame hatası {minigame_name}: {e}")
+        
+        # Minigame bitiş hook'u
+        mod_manager.call_hook('on_minigame_end', minigame_name, game_data)
+        
+        # Bir sonraki minigame'e geç
+        current_minigame_index += 1
+        
+        # Mod'lar tekrar switch yapmış mı kontrol et
+        if 'switch_to_minigame' in game_data:
+            continue  # Döngünün başına dön, switch'i işle
+    
+    # Oyun sonu hook'u
+    mod_manager.call_hook('on_game_end', game_data)
 
     mod_manager.call_hook('on_minigame_start', 'labyrinth', game_data)
     start_labyrinth_game(screen)
@@ -1138,8 +1206,24 @@ def main():
     start_notdie(screen, bitrus_img, pc_img, wantvirus_img, rocket_img, nuke_img , explosion_sound)
     mod_manager.call_hook('on_minigame_end', 'notdie', game_data)
 
+    mod_manager.call_hook('on_minigame_start', 'new_offer', game_data)
+    start_new_offer(screen ,background ,pitrus)
+    mod_manager.call_hook('on_minigame_end', 'new_offer', game_data)
     
-    # Oyun bitişi hook'u çağır
+    mod_manager.call_hook('on_minigame_start', 'cable_game', game_data)
+    start_cable_game(screen)
+    mod_manager.call_hook('on_minigame_end', 'cable_game', game_data)
+
+    mod_manager.call_hook('on_minigame_start', 'water_system', game_data)
+    start_water_system(screen)
+    mod_manager.call_hook('on_minigame_end', 'water_system', game_data)
+
+    mod_manager.call_hook('on_minigame_start', 'sun_panel', game_data)
+    start_sun_panel(screen)
+    mod_manager.call_hook('on_minigame_end', 'sun_panel', game_data)
+
+
+    
     mod_manager.call_hook('on_game_end', game_data)
   
     pygame.quit()
@@ -1159,6 +1243,11 @@ secilen_muzik = random.choice(muzikler)
 pygame.mixer.music.load(secilen_muzik)
 pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1)  # Sonsuz döngüde çal
+background = pygame.image.load("assets/pixel_art/xp_background.jpg")
+pitrus = pygame.image.load("assets/pixel_art/pitrüs.png")
+
+
+
 
 if __name__ == "__main__":
     main()
