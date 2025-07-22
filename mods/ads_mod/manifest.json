@@ -1,0 +1,10 @@
+{
+    "name": "Ads Mod",
+    "version": "1.0",
+    "description": "Minigame başlamadan önce ads klasöründen rastgele mp4 reklam gösterir.",
+    "author": "Farmer_Dev",
+    "main_file": "ads_mod.py",
+    "enabled": false,
+    "dependencies": [],
+    "min_game_version": "1.0"
+}

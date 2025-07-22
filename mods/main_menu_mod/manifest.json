@@ -1,0 +1,23 @@
+{
+    "name": "Ana Menü Mod",
+    "version": "1.0",
+    "description": "Splash screen sonrası ana menü sistemi ekler. Yeni oyun, devam et ve çıkış seçenekleri ile otomatik kayıt sistemi.",
+    "author": "Farmer_Dev",
+    "main_file": "main_menu_mod.py",
+    "enabled": true,
+    "dependencies": [],
+    "min_game_version": "1.0",
+    "features": [
+        "Ana menü sistemi",
+        "Otomatik kayıt/yükleme",
+        "Minigame ilerlemesi",
+        "Kayıt dosyası yönetimi"
+    ],
+    "keybindings": {
+        "F5": "Hızlı kaydet",
+        "F9": "Ana menüye dön",
+        "UP/DOWN": "Menüde gezin",
+        "ENTER": "Seçimi onayla",
+        "ESC": "Çıkış"
+    }
+}
