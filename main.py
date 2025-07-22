@@ -30,11 +30,14 @@ ACCENT_COLOR = (100, 200, 255)
 GITHUB_URL = "https://github.com/FarmerDevv"
 pygame.init()
 
-
 def splash_screen(screen):
     pygame.init()
     WIDTH, HEIGHT = screen.get_size()
     clock = pygame.time.Clock()
+
+    # Ses dosyasını yükle
+    pygame.mixer.init()
+    crack_sound = pygame.mixer.Sound("assets//music//crack.mp3")  # Dosyan yolunu doğru gir
 
     BG_COLOR = (54, 54, 54)
     font = pygame.font.SysFont("Arial", 32, bold=True)
@@ -42,13 +45,11 @@ def splash_screen(screen):
     text_surface = font.render(text, True, (200, 200, 200))
     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 120))
 
-    # Başlık fontu ve ayarları
     title_font = pygame.font.SysFont("Arial", 48, bold=True)
     title_text = "free bitcoin bitrüs"
-    title_color = (10, 10, 10)  # siyah renk
+    title_color = (10, 10, 10)
     title_surface = title_font.render(title_text, True, title_color)
 
-    # Başlık biraz aşağıda (örneğin y=100)
     title_y = 100
     title_x = WIDTH
     target_title_x = WIDTH // 2 - title_surface.get_width() // 2
@@ -86,7 +87,6 @@ def splash_screen(screen):
             title_x -= 8
         else:
             title_x = target_title_x
-            # Başlık için particle çıkar (300 tane)
             if not particle_triggered_title:
                 for _ in range(300):
                     particles.append({
@@ -96,17 +96,15 @@ def splash_screen(screen):
                         "color": (30 + random.randint(0, 40), 20 + random.randint(0, 40), 10),
                         "lifetime": random.randint(50, 150)
                     })
+                pygame.mixer.Sound.play(crack_sound)  # SES EFEKTİ TAM BURADA
                 particle_triggered_title = True
 
-        # Başlık çizimi
         screen.blit(title_surface, (title_x, title_y))
 
-        # Logo soldan sağa hareket
         if logo_x < target_logo_x:
             logo_x += 8
         else:
             logo_x = target_logo_x
-            # Alt yazı için particle çıkar (200 tane)
             if not particle_triggered_text:
                 for _ in range(200):
                     particles.append({
@@ -121,18 +119,16 @@ def splash_screen(screen):
         logo_rect = logo_img.get_rect(topleft=(logo_x, logo_y))
         screen.blit(logo_img, logo_rect)
 
-        # Alt metin titreme/parlama efekti
         brightness = 150 + 105 * math.sin(t * math.pi * 4)
         text_color = (brightness, brightness, brightness)
         text_surface = font.render(text, True, text_color)
         screen.blit(text_surface, text_rect)
 
-        # Particle güncelleme ve çizim
         new_particles = []
         for p in particles:
             p["pos"][0] += p["vel"][0]
             p["pos"][1] += p["vel"][1]
-            p["vel"][1] += 0.1  # gravity
+            p["vel"][1] += 0.1
             p["lifetime"] -= 1
             if p["lifetime"] > 0:
                 pygame.draw.circle(screen, p["color"], (int(p["pos"][0]), int(p["pos"][1])), p["radius"])
@@ -148,6 +144,7 @@ def splash_screen(screen):
 
 
 class ModManager:
+    
     def __init__(self):
         self.mods_dir = "mods"
         self.loaded_mods = {}
@@ -1245,9 +1242,6 @@ pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1)  # Sonsuz döngüde çal
 background = pygame.image.load("assets/pixel_art/xp_background.jpg")
 pitrus = pygame.image.load("assets/pixel_art/pitrüs.png")
-
-
-
 
 if __name__ == "__main__":
     main()
