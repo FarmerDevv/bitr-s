@@ -23,6 +23,10 @@ from minigames.new_offer import start_new_offer
 from minigames.cable import start_cable_game
 from minigames.water_system import start_water_system
 from minigames.sun_panel import start_sun_panel
+from minigames.server_machine import start_power_routing_game
+from minigames.realoffer import start_realoffer
+from minigames.dep import start_dep
+from minigames.dep_af import start_dep_af
 pygame.init()
 icon = pygame.image.load("assets/pixel_art/bitcoin_icon.png")
 pygame.display.set_icon(icon)
@@ -45,12 +49,12 @@ def splash_screen(screen):
     text_surface = font.render(text, True, (200, 200, 200))
     text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 120))
 
-    title_font = pygame.font.SysFont("Arial", 48, bold=True)
+    title_font = pygame.font.SysFont("Arial", 60, bold=True)
     title_text = "free bitcoin bitrüs"
     title_color = (10, 10, 10)
     title_surface = title_font.render(title_text, True, title_color)
 
-    title_y = 100
+    title_y = 200
     title_x = WIDTH
     target_title_x = WIDTH // 2 - title_surface.get_width() // 2
 
@@ -79,6 +83,8 @@ def splash_screen(screen):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Sol tık
+                running = False  # Splash ekranı bitir
 
         screen.fill(BG_COLOR)
 
@@ -96,7 +102,7 @@ def splash_screen(screen):
                         "color": (30 + random.randint(0, 40), 20 + random.randint(0, 40), 10),
                         "lifetime": random.randint(50, 150)
                     })
-                pygame.mixer.Sound.play(crack_sound)  # SES EFEKTİ TAM BURADA
+                pygame.mixer.Sound.play(crack_sound)
                 particle_triggered_title = True
 
         screen.blit(title_surface, (title_x, title_y))
@@ -546,6 +552,10 @@ rocket_img = pygame.image.load(os.path.join(ASSETS_DIR, "rocket.png"))
 nuke_img = pygame.image.load(os.path.join(ASSETS_DIR, "nuke.png"))
 wantvirus_img = pygame.image.load("assets/pixel_art/wantvirus.png")
 human_sound = pygame.mixer.Sound("assets/music/human.mp3")
+background = pygame.image.load("assets/pixel_art/xp_background.jpg")
+pitrus = pygame.image.load("assets/pixel_art/pitrüs.png")
+human_sound = pygame.mixer.Sound("assets/music/human.mp3")
+explosion_sound = pygame.mixer.Sound("assets/music/nuke.mp3")
 explosion_sound = pygame.mixer.Sound("assets/music/nuke.mp3")
 
 
@@ -967,6 +977,7 @@ def start_about_app(screen):
         pygame.display.flip()
         clock.tick(60)
 
+    
 def main():
     # Önce tüm asset'leri yükle
     screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
@@ -1095,6 +1106,7 @@ def main():
         pygame.display.flip()
         clock.tick(60)
     minigames = [
+        
         ('labyrinth', start_labyrinth_game, [screen]),
         ('virus_defense', start_virus_defense, [screen, virus_image, wantvirus_image]),
         ('new_game', start_new_game, [screen, virus_image]),
@@ -1109,7 +1121,11 @@ def main():
         ('new_offer', start_new_offer, [screen, background, pitrus]),
         ('cable_game', start_cable_game, [screen]),
         ('water_system', start_water_system, [screen]),
-        ('sun_panel', start_sun_panel, [screen])
+        ('sun_panel', start_sun_panel, [screen]),
+        ('power_routing_game', start_power_routing_game, [screen]),
+        ('realoffer', start_realoffer, [screen]),
+        ('dep', start_dep, [screen]),
+        ('dep_af', start_dep_af, [screen]),
     ]
     
     # Başlangıç minigame index'i
@@ -1158,6 +1174,9 @@ def main():
     
     # Oyun sonu hook'u
     mod_manager.call_hook('on_game_end', game_data)
+
+    
+
 
     mod_manager.call_hook('on_minigame_start', 'labyrinth', game_data)
     start_labyrinth_game(screen)
@@ -1219,8 +1238,23 @@ def main():
     start_sun_panel(screen)
     mod_manager.call_hook('on_minigame_end', 'sun_panel', game_data)
 
+    mod_manager.call_hook('on_minigame_start', 'power_routing_game', game_data)
+    start_power_routing_game(screen)
+    mod_manager.call_hook('on_minigame_end', 'power_routing_game', game_data)
 
-    
+    mod_manager.call_hook('on_minigame_start', 'realoffer', game_data)
+    start_realoffer(screen)
+    mod_manager.call_hook('on_minigame_end', 'realoffer', game_data)
+
+    mod_manager.call_hook('on_minigame_start', 'dep', game_data)
+    start_dep(screen)
+    mod_manager.call_hook('on_minigame_end', 'dep', game_data)
+
+    mod_manager.call_hook('on_minigame_start', 'dep_af', game_data)
+    start_dep_af(screen)
+    mod_manager.call_hook('on_minigame_end', 'dep_af', game_data)
+
+
     mod_manager.call_hook('on_game_end', game_data)
   
     pygame.quit()
@@ -1241,8 +1275,7 @@ pygame.mixer.music.load(secilen_muzik)
 pygame.mixer.music.set_volume(0.5)
 pygame.mixer.music.play(-1)  # Sonsuz döngüde çal
 
-background = pygame.image.load("assets/pixel_art/xp_background.jpg")
-pitrus = pygame.image.load("assets/pixel_art/pitrüs.png")
+
 
 if __name__ == "__main__":
     main()
